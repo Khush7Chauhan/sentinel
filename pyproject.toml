@@ -1,0 +1,29 @@
+[project]
+name = "sentinel"
+version = "0.1.0"
+description = "Typosquat/behavior/CVE scoring tool"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Claude Code", email = "noreply@anthropic.com" }]
+dependencies = [
+  "typer[all]",
+  "rich",
+  "pydantic>=2.0",
+  "pyyaml",
+  "httpx",
+  "rapidfuzz",
+  "fastapi",
+  "uvicorn",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["tests*", "test*", "examples*"]

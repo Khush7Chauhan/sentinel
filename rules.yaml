@@ -1,0 +1,26 @@
+schema_version: 1
+
+scoring_weights:
+  CRITICAL: 25
+  HIGH: 15
+  MEDIUM: 8
+  LOW: 3
+  INFO: 0
+
+category_caps:
+  typosquat: 30
+  behavior: 60
+  cve: 25
+  maintainer: 20
+
+behavior_limits:
+  max_tarball_mb: 50
+  entropy_threshold: 4.5
+  raw_ip_whitelist: ["127.0.0.1", "localhost"]
+
+# Edit-distance thresholds used to bucket potential typosquats.
+# Lower distance => higher confidence.
+typosquat_distance_thresholds:
+  high_confidence_max_distance: 1
+  medium_confidence_max_distance: 2
+  low_confidence_max_distance: 3
