@@ -3,7 +3,6 @@ import re
 from pathlib import Path
 from src.models import PackageRecord, Finding, Severity
 
-# Standard regex for common credentials and secrets
 SECRET_PATTERNS = {
     "AWS_ACCESS_KEY": r"(?i)AKIA[0-9A-Z]{16}",
     "GENERIC_API_KEY": r"(?i)(?:api_key|token|secret)[ \t]*=[ \t]*['\"][a-zA-Z0-9_\-]{20,}['\"]",
@@ -11,7 +10,6 @@ SECRET_PATTERNS = {
 }
 
 def calculate_shannon_entropy(data: str) -> float:
-    """Calculates the Shannon entropy of a string to detect encrypted or obfuscated data."""
     if not data:
         return 0.0
     entropy = 0.0
@@ -25,7 +23,6 @@ def calculate_shannon_entropy(data: str) -> float:
     return entropy
 
 def scan_file_secrets(package: PackageRecord, file_path: Path) -> list[Finding]:
-    """Scans a file for hardcoded secrets and highly obfuscated (high-entropy) strings."""
     if not file_path.exists():
         return []
 
@@ -36,7 +33,6 @@ def scan_file_secrets(package: PackageRecord, file_path: Path) -> list[Finding]:
         return findings
 
     for line_num, line in enumerate(lines, start=1):
-        # 1. Regex Pattern Matching
         for secret_type, pattern in SECRET_PATTERNS.items():
             if re.search(pattern, line):
                 findings.append(Finding(
@@ -52,12 +48,11 @@ def scan_file_secrets(package: PackageRecord, file_path: Path) -> list[Finding]:
                     points=25.0
                 ))
 
-        # 2. High Entropy Detection (Base64/Obfuscated Payloads)
-        # We target long, unbroken alphanumeric strings typical of base64 payloads
+
         words = re.findall(r'[a-zA-Z0-9+/=]{40,}', line)
         for word in words:
             entropy = calculate_shannon_entropy(word)
-            if entropy > 5.5:  # Strings above 5.5 entropy are highly randomized/obfuscated
+            if entropy > 5.5:  
                 findings.append(Finding(
                     id="L2-HIGH-ENTROPY",
                     layer="L2",

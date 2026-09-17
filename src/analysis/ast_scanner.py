@@ -36,7 +36,6 @@ class SentinelASTVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call):
-        # Check direct function calls like eval(), exec(), or getattr()
         if isinstance(node.func, ast.Name):
             if node.func.id in DANGEROUS_CALLS:
                 self._add_finding(
@@ -52,8 +51,6 @@ class SentinelASTVisitor(ast.NodeVisitor):
                     evidence={"line": node.lineno},
                     explanation="Potential obfuscation using 'getattr' to hide malicious system calls."
                 )
-        
-        # Check attribute calls like os.system() or subprocess.run()
         if isinstance(node.func, ast.Attribute):
             if node.func.attr in DANGEROUS_CALLS:
                 if isinstance(node.func.value, ast.Name) and node.func.value.id in DANGEROUS_IMPORTS:

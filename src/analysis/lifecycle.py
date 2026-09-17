@@ -3,7 +3,6 @@ from pathlib import Path
 from src.models import PackageRecord, Finding, Severity
 
 def inspect_setup_py(package: PackageRecord, file_path: Path) -> list[Finding]:
-    """Inspects setup.py for malicious install-time hooks."""
     if not file_path.exists():
         return []
 
