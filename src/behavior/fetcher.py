@@ -12,7 +12,7 @@ MAX_SIZE_BYTES = RULES["behavior_limits"]["max_tarball_mb"] * 1024 * 1024
 def fetch_and_extract(package: PackageRecord) -> Path | None:
     """Downloads and extracts package tarballs with aggressive offline caching."""
     if package.ecosystem != "pypi":
-        return None  # Extending to npm/go is trivial via their respective APIs
+        return None  
 
     ecosystem_cache = CACHE_DIR / package.ecosystem
     ecosystem_cache.mkdir(parents=True, exist_ok=True)
@@ -24,7 +24,6 @@ def fetch_and_extract(package: PackageRecord) -> Path | None:
         return extract_dir
 
     if not tarball_path.exists():
-        # Fetch tarball URL from PyPI JSON API
         url = f"https://pypi.org/pypi/{package.name}/{package.version}/json"
         try:
             resp = httpx.get(url, timeout=5.0)

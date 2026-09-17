@@ -5,7 +5,6 @@ from src.models import PackageRecord, Finding, Severity
 from src.config import RULES
 from src.hygiene.secrets import calculate_shannon_entropy
 
-# B01, B04, B06, B08, B10 Regex Catalog
 REGEX_PATTERNS = {
     "B01": (Severity.CRITICAL, r"(?i)(stratum\+tcp|coinhive|xmrig)", "Crypto-miner strings detected."),
     "B04": (Severity.HIGH, r"https?://\d{1,3}(?:\.\d{1,3}){3}", "Raw IP endpoint detected. Malware frequently avoids DNS to evade sinkholes."),
@@ -64,7 +63,6 @@ def scan_extracted_tarball(package: PackageRecord, extract_dir: Path) -> list[Fi
         except Exception:
             continue
             
-        # Regex Patterns (B01, B04, B06, B08, B10)[cite: 2]
         for line_num, line in enumerate(content.splitlines(), start=1):
             for rule_id, (sev, pattern, desc) in REGEX_PATTERNS.items():
                 match = re.search(pattern, line)
@@ -85,7 +83,6 @@ def scan_extracted_tarball(package: PackageRecord, extract_dir: Path) -> list[Fi
                         points=25.0 if sev == Severity.CRITICAL else (15.0 if sev == Severity.HIGH else 8.0)
                     ))
                     
-            # B05: Obfuscation (High Entropy Strings)[cite: 2]
             if not file_path.name.endswith(".min.js"):
                 long_strings = re.findall(r'[A-Za-z0-9+/=]{100,}', line)
                 for s in long_strings:
@@ -103,7 +100,6 @@ def scan_extracted_tarball(package: PackageRecord, extract_dir: Path) -> list[Fi
                             points=15.0
                         ))
 
-        # AST Scanning for Python (B02, B07)[cite: 2]
         if file_path.suffix == ".py":
             try:
                 tree = ast.parse(content)
