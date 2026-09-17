@@ -6,7 +6,7 @@ from src.models import Finding, Severity
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
 def audit_github_workflows(repo_path: Path) -> list[Finding]:
-    """Inspects GitHub Actions workflow definitions against security rules W1-W5."""
+    
     findings = []
     workflows_dir = repo_path / ".github" / "workflows"
     if not workflows_dir.exists():
@@ -25,7 +25,6 @@ def audit_github_workflows(repo_path: Path) -> list[Finding]:
         triggers = data.get("on", data.get(True, []))
         has_pr_target = "pull_request_target" in triggers if isinstance(triggers, (list, dict, str)) else False
 
-        # W5: permissions: write-all check
         permissions = data.get("permissions")
         if permissions == "write-all" or (isinstance(permissions, dict) and permissions.get("contents") == "write"):
             findings.append(Finding(
@@ -49,7 +48,6 @@ def audit_github_workflows(repo_path: Path) -> list[Finding]:
             if not isinstance(job_data, dict):
                 continue
 
-            # W4: Self-hosted runner reachable from pull_request
             runs_on = str(job_data.get("runs-on", ""))
             if "self-hosted" in runs_on and (has_pr_target or "pull_request" in str(triggers)):
                 findings.append(Finding(
@@ -74,7 +72,6 @@ def audit_github_workflows(repo_path: Path) -> list[Finding]:
                     continue
 
                 uses = step.get("uses", "")
-                # W3: Action refs not pinned to full 40-character commit SHA
                 if uses and not uses.startswith("./") and not uses.startswith("docker://"):
                     if "@" in uses:
                         action_name, ref = uses.split("@", 1)
@@ -92,7 +89,7 @@ def audit_github_workflows(repo_path: Path) -> list[Finding]:
                                 points=8.0
                             ))
 
-                # W1: pull_request_target + checkout of PR head
+        
                 with_params = step.get("with", {}) or {}
                 ref_param = str(with_params.get("ref", ""))
                 if has_pr_target and "actions/checkout" in uses:
@@ -110,7 +107,7 @@ def audit_github_workflows(repo_path: Path) -> list[Finding]:
                             points=25.0
                         ))
 
-                # W2: Script injection via github.event context in run:
+
                 run_command = step.get("run", "")
                 if run_command:
                     bad_contexts = re.findall(r"\$\{\{\s*github\.event\.(?:pull_request|issue|comment)\.(?:title|body|head|label)[^\}]*\}\}", run_command)

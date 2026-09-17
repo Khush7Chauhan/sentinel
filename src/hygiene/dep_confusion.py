@@ -7,7 +7,6 @@ def check_dependency_confusion(package: PackageRecord, is_internal_candidate: bo
         return []
 
     findings = []
-    # Read-only verification against public registries
     if package.ecosystem == "pypi":
         url = f"https://pypi.org/pypi/{package.name}/json"
     elif package.ecosystem == "npm":
@@ -17,7 +16,6 @@ def check_dependency_confusion(package: PackageRecord, is_internal_candidate: bo
 
     try:
         response = httpx.get(url, timeout=4.0)
-        # HTTP 404 indicates the name is absent on the public index and claimable by an attacker
         if response.status_code == 404:
             findings.append(Finding(
                 id=f"L3-DEP-CONFUSION-{package.name}",

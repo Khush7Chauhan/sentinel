@@ -12,14 +12,14 @@ SECRET_PATTERNS = {
 }
 
 def mask_secret(secret_str: str) -> str:
-    """Masks secret to prevent credential exfiltration in logs (SPEC §6.4)."""
+    
     trimmed = secret_str.strip()
     if len(trimmed) <= 4:
         return "****"
     return f"{trimmed[:4]}****"
 
 def calculate_shannon_entropy(data: str) -> float:
-    """Computes Shannon entropy in bits per character."""
+    
     if not data:
         return 0.0
     entropy = 0.0
@@ -31,7 +31,7 @@ def calculate_shannon_entropy(data: str) -> float:
     return entropy
 
 def scan_repo_secrets(repo_path: Path) -> list[Finding]:
-    """Scans all repository source, config, and environment files for secrets."""
+    
     findings = []
     ignored_dirs = {".git", ".pytest_cache", "node_modules", "venv", "__pycache__"}
     extensions = {".py", ".js", ".ts", ".env", ".json", ".yaml", ".yml", ".txt", ".conf"}
@@ -48,7 +48,6 @@ def scan_repo_secrets(repo_path: Path) -> list[Finding]:
             continue
 
         for line_num, line in enumerate(content.splitlines(), start=1):
-            # 1. Regex rule checks
             for secret_type, regex in SECRET_PATTERNS.items():
                 match = re.search(regex, line)
                 if match:
@@ -71,7 +70,6 @@ def scan_repo_secrets(repo_path: Path) -> list[Finding]:
                         points=25.0
                     ))
 
-            # 2. High-entropy candidate check (length > 20, entropy > 4.5)
             words = re.findall(r'[A-Za-z0-9_\-\.\+/=]{20,}', line)
             for word in words:
                 entropy = calculate_shannon_entropy(word)
