@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import './index.css';
 import { DEMO_DATA, CLEAN_DATA, TIMELINE } from './data';
 import { 
@@ -35,12 +35,41 @@ function FindingRow({ f }) {
 }
 
 function Graph({ dataset, selectedId, onSelect }) {
-  const riskOf = (id) => { const p = dataset.packages.find((p) => p.id === id); return p ? packageRisk(p) : 0; };
+  const riskOf = (id) => {
+    const p = dataset.packages.find((p) => p.id === id);
+    return p ? packageRisk(p) : 0;
+  };
   const nodeSev = (n) => severityFromRisk(n.kind === "root" ? projectRisk(dataset.packages, dataset.projectFindings) : riskOf(n.id));
+
+  // DYNAMIC RADIAL LAYOUT ENGINE
+  const { nodes, edges } = useMemo(() => {
+    if (!dataset || !dataset.graph) return { nodes: [], edges: [] };
+    
+    const rootNode = dataset.graph.nodes.find(n => n.kind === "root") || { id: "root", x: 300, y: 160, kind: "root", label: "target" };
+    const pkgNodes = dataset.graph.nodes.filter(n => n.kind !== "root");
+    
+    const cx = 300, cy = 160, radius = 115;
+    const positionedNodes = [ { ...rootNode, x: cx, y: cy } ];
+    
+    // Auto-distribute package nodes in a perfect circle
+    pkgNodes.forEach((node, i) => {
+      const angle = (i / pkgNodes.length) * 2 * Math.PI - (Math.PI / 2);
+      positionedNodes.push({
+        ...node,
+        x: cx + radius * Math.cos(angle),
+        y: cy + radius * Math.sin(angle)
+      });
+    });
+    
+    return { nodes: positionedNodes, edges: dataset.graph.edges || [] };
+  }, [dataset]);
 
   return (
     <div className="panel graph-panel">
-      <div className="panel-head">Dependency graph<span className="live-tag"><span className="live-dot" />live</span></div>
+      <div className="panel-head">
+        Dependency graph
+        <span className="live-tag"><span className="live-dot" />live</span>
+      </div>
       <svg viewBox="0 0 600 340" style={{ width: "100%", height: "260px" }} preserveAspectRatio="xMidYMid meet">
         <defs>
           <filter id="graph-blur"><feGaussianBlur stdDeviation="22" /></filter>
@@ -52,10 +81,11 @@ function Graph({ dataset, selectedId, onSelect }) {
         <circle className="graph-drift graph-drift-b" cx="470" cy="250" r="100" fill="rgba(229,72,77,.14)" filter="url(#graph-blur)" />
         <circle className="graph-drift graph-drift-c" cx="380" cy="70" r="80" fill="rgba(76,140,255,.12)" filter="url(#graph-blur)" />
 
-        {dataset.graph.edges.map(([a, b], i) => {
-          const na = dataset.graph.nodes.find((n) => n.id === a);
-          const nb = dataset.graph.nodes.find((n) => n.id === b);
+        {edges.map(([a, b], i) => {
+          const na = nodes.find((n) => n.id === a);
+          const nb = nodes.find((n) => n.id === b);
           if(!na || !nb) return null;
+          
           const mx = (na.x + nb.x) / 2, my = (na.y + nb.y) / 2 - 14;
           const targetSev = nodeSev(nb);
           const hot = targetSev === "critical" || targetSev === "high";
@@ -63,6 +93,7 @@ function Graph({ dataset, selectedId, onSelect }) {
           const particleColor = hot ? SEVERITY_COLOR[targetSev] : "#6FA0FF";
           const dur = (hot ? 1.8 : 2.6) + (i % 3) * 0.4;
           const begin = (i * 0.5).toFixed(2);
+          
           return (
             <React.Fragment key={i}>
               <path d={d} fill="none" stroke={hot ? SEVERITY_COLOR[targetSev] : "var(--border)"} strokeOpacity={hot ? 0.55 : 1} strokeWidth="1.5" strokeDasharray="5 5" className="graph-edge" style={{ animationDelay: `${i * -0.3}s` }} />
@@ -72,11 +103,12 @@ function Graph({ dataset, selectedId, onSelect }) {
           );
         })}
 
-        {dataset.graph.nodes.map((n, i) => {
+        {nodes.map((n, i) => {
           const sev = nodeSev(n);
           const fill = n.kind === "root" ? "var(--ink)" : SEVERITY_COLOR[sev];
           const r = n.kind === "root" ? 8 : n.id === selectedId ? 9 : 6;
           const risky = n.kind !== "root" && (sev === "critical" || sev === "high");
+          
           return (
             <g key={n.id} className="graph-node-group" style={{ animationDelay: `${i * 0.07}s, ${0.4 + i * 0.45}s`, animationDuration: `.5s, ${3.4 + (i % 3) * 0.6}s` }} onClick={() => n.kind !== "root" && onSelect(n.id)} cursor={n.kind === "root" ? "default" : "pointer"}>
               <circle cx={n.x} cy={n.y} r={r + 10} fill={fill} opacity={risky || n.kind === "root" ? 0.28 : 0.14} filter="url(#node-blur)" />
@@ -94,18 +126,22 @@ function Graph({ dataset, selectedId, onSelect }) {
   );
 }
 
-function Landing({ onScan }) {
+function Landing({ onScan, apiError }) {
   const [url, setUrl] = useState("");
-  const [error, setError] = useState("");
+  const [localError, setLocalError] = useState("");
   const [revealed, setRevealed] = useState(false);
   const inputRef = useRef(null);
 
   const reveal = () => { setRevealed(true); setTimeout(() => inputRef.current && inputRef.current.focus(), 200); };
   const scrollToTry = () => { reveal(); document.getElementById("try")?.scrollIntoView({ behavior: "smooth", block: "center" }); };
+  
   const submit = () => {
-    if (!GH_URL_RE.test(url.trim())) return setError("Enter a valid public GitHub URL — github.com/owner/repo");
-    setError(""); onScan(url.trim().replace(/^https?:\/\//, "").replace(/^www\./, ""), DEMO_DATA);
+    if (url.trim().length < 2) { setLocalError("Enter a valid target directory or GitHub URL"); return; }
+    setLocalError("");
+    onScan(url.trim().replace(/^https?:\/\//, "").replace(/^www\./, ""));
   };
+
+  const displayError = localError || apiError;
 
   return (
     <div className="future-page">
@@ -148,40 +184,57 @@ function Landing({ onScan }) {
           <div className={`cta-input-wrap ${revealed ? "open" : ""}`}>
             <div className="cta-glass-pill">
               <IconSearch width="17" height="17" />
-              <input ref={inputRef} placeholder="github.com/owner/repo" value={url} onChange={(e) => { setUrl(e.target.value); setError(""); }} onKeyDown={(e) => e.key === "Enter" && submit()} />
-              <button onClick={submit}>Scan</button>
+              <input ref={inputRef} placeholder="github.com/owner/repo or C:/local/path" value={url} onChange={(e) => { setUrl(e.target.value); setLocalError(""); }} onKeyDown={(e) => e.key === "Enter" && submit()} />
+              <button onClick={submit}>Scan Live</button>
             </div>
-            {error && <div className="cta-error">{error}</div>}
-            <div className="cta-samples">
-              <button onClick={() => onScan("acme/shopcart (demo-app)", DEMO_DATA)}>demo-app · planted threats</button>
-              <button onClick={() => onScan("vercel/next.js (clean repo)", CLEAN_DATA)}>a clean repo</button>
-            </div>
+            {displayError && <div className="cta-error">{displayError}</div>}
           </div>
         </div>
       </div>
-      <div className="future-foot">Defensive analysis only — no exploits, no payloads. Demo data is simulated per hackathon rules.</div>
+      <div className="future-foot">Defensive analysis only — no exploits, no payloads.</div>
     </div>
   );
 }
 
 const SCAN_STEPS = ["Parsers", "L1 · Dependency intel", "L2 · Behavior scan", "L3 · Repo hygiene", "Scoring engine"];
-function Scanning({ target, dataset, onDone, onCancel }) {
+
+function Scanning({ target, onCancel, scanPromise, onScanComplete }) {
   const [step, setStep] = useState(0);
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState([`Initializing connection to scanning engine...`]);
+  
   useEffect(() => {
-    const pkgs = dataset.packages.map((p) => p.name);
+    let currentStep = 0;
     const stepLogs = [
-      [`Cloning ${target} (shallow, read-only)`, "Found package-lock.json · requirements.txt", `Parsed ${dataset.packages.length} packages (${pkgs.join(", ")})`],
-      ["Querying OSV vulnerability database…", "Fetching npm / PyPI registry metadata…", "Checking names against top-10k packages (typosquats)…", "Profiling maintainers & publish history…"],
-      ["Downloading tarballs (cached)…", `Scanning install hooks & file contents…`, dataset.key === "demo" ? "⚠ B02 env-harvest pattern matched in lodahs" : "No behavior patterns matched ✓"],
-      ["Scanning .github/workflows/*.yml…", "Entropy-based secret scan…", dataset.key === "demo" ? "⚠ API key pattern in deploy.yml" : "No secrets found ✓"],
-      ["Applying severity × confidence weights…", "Composing explanation records…", "Done."],
+      [`Cloning ${target} (shallow, read-only)`, "Extracting manifests..."],
+      ["Querying OSV vulnerability database…", "Fetching registry metadata…"],
+      ["Downloading tarballs (cached)…", `Scanning install hooks & AST...`],
+      ["Scanning .github/workflows/*.yml…", "Entropy-based secret scan…"],
+      ["Applying severity weights…", "Finalizing report…"],
     ];
-    let s = 0;
-    const iv = setInterval(() => { setLogs((L) => [...L, ...(stepLogs[s] || [])]); setStep(s + 1); s += 1; if (s >= SCAN_STEPS.length) { clearInterval(iv); setTimeout(onDone, 500); } }, 700);
+
+    const iv = setInterval(() => {
+      if (currentStep < SCAN_STEPS.length - 1) {
+        setLogs((L) => [...L, ...(stepLogs[currentStep] || [])]);
+        setStep(currentStep + 1);
+        currentStep++;
+      }
+    }, 800);
+
+    scanPromise.then(data => {
+      clearInterval(iv);
+      setStep(SCAN_STEPS.length);
+      setLogs((L) => [...L, "Done."]);
+      setTimeout(() => onScanComplete(data), 600);
+    }).catch(err => {
+      clearInterval(iv);
+      onCancel(err.message); 
+    });
+
     return () => clearInterval(iv);
-  }, []);
+  }, [target, scanPromise, onCancel, onScanComplete]);
+
   const progress = Math.min(100, Math.round((step / SCAN_STEPS.length) * 100));
+
   return (
     <div className="landing">
       <div className="panel scanning-card">
@@ -189,7 +242,7 @@ function Scanning({ target, dataset, onDone, onCancel }) {
         <div className="scan-progress"><div className="scan-progress-fill" style={{ width: `${progress}%` }} /></div>
         <div className="pipeline" style={{ marginBottom: 12 }}>{SCAN_STEPS.map((st, i) => <React.Fragment key={st}><span className={`pipe-step ${i < step ? "done" : i === step ? "active" : ""}`}>{i < step ? "✓ " : ""}{st}</span>{i < SCAN_STEPS.length - 1 && <span className="pipe-arrow">→</span>}</React.Fragment>)}</div>
         <div className="scan-logs mono">{logs.map((l, i) => <div key={i}>{l}</div>)}</div>
-        <button className="rescan" onClick={onCancel}>Cancel</button>
+        <button className="rescan" onClick={() => onCancel("Scan cancelled by user")}>Cancel</button>
       </div>
     </div>
   );
@@ -228,7 +281,7 @@ function Remediation({ target, dataset, onBack }) {
 
 function Dashboard({ target, dataset, onRescan }) {
   const sorted = useMemo(() => [...dataset.packages].sort((a, b) => packageRisk(b) - packageRisk(a)), [dataset]);
-  const [selectedId, setSelectedId] = useState(sorted[0].id);
+  const [selectedId, setSelectedId] = useState(sorted[0]?.id || "");
   const [showExplain, setShowExplain] = useState(false);
   const [view, setView] = useState("findings"); 
   const [sevFilter, setSevFilter] = useState("all");
@@ -240,18 +293,20 @@ function Dashboard({ target, dataset, onRescan }) {
   const critCount = dataset.packages.filter((p) => packageSeverity(p) === "critical").length;
   const highCount = dataset.packages.filter((p) => packageSeverity(p) === "high").length;
   const filteredPkgs = sorted.filter((p) => (p.name + p.ecosystem).toLowerCase().includes(query.toLowerCase()));
+  
+  if (!selected) return null; 
+  
   const shownFindings = selected.findings.filter((f) => sevFilter === "all" || f.severity === sevFilter);
-
   const explainText = packageSeverity(selected) === "critical" || packageSeverity(selected) === "high"
-      ? `This package looks risky mainly because of its name and its age. "${selected.name}" is one character off from a package millions of projects trust, and whoever published it doesn't have the track record you'd expect — a very recent account and code that reaches out to the network the moment it's installed.`
-      : `Nothing here points to compromise. The findings are routine maintenance items — worth fixing, but not signs of a hijacked package or a malicious maintainer.`;
+      ? `This package requires immediate review based on strict deterministic rules. Please verify the findings below.`
+      : `No critical indicators found. Findings are standard maintenance items.`;
 
   if (view === "remediation") return <div className="scs"><Remediation target={target} dataset={dataset} onBack={() => setView("findings")} /></div>;
 
   return (
     <div className="scs">
       <div className="scs-header">
-        <div className="scs-title"><h1>Supply Chain Sentinel</h1><span className="sub">{target} · scanned just now · <span style={{ color: "var(--medium)" }}>demo data</span></span></div>
+        <div className="scs-title"><h1>Supply Chain Sentinel</h1><span className="sub">{target} · scanned live via FastAPI</span></div>
         <div className="header-right"><span className="sub" style={{ color: "var(--muted)", fontSize: 12.5 }}>{dataset.packages.length} packages · {critCount} critical · {highCount} high</span><div className="overall-badge" title="Weighted package rollup + repo findings"><span className="n" style={{ color: SEVERITY_COLOR[riskSev] }}>{risk}</span><span className="l">/100 risk</span></div><button className="rescan" onClick={() => download("scan-report.json", JSON.stringify(buildReport(target, dataset), null, 2))}>Export</button><button className="rescan" onClick={() => setView("remediation")}>Remediation →</button><button className="rescan btn-primary" onClick={onRescan}>New scan</button></div>
       </div>
       <div className="pipeline">{SCAN_STEPS.map((step, i) => <React.Fragment key={step}><span className="pipe-step done">✓ {step}</span>{i < SCAN_STEPS.length - 1 && <span className="pipe-arrow">→</span>}</React.Fragment>)}</div>
@@ -277,15 +332,15 @@ function Dashboard({ target, dataset, onRescan }) {
             <div className="section-label">Findings for this package<span className="filter-chips">{["all", "critical", "high", "medium", "low"].map((s) => <button key={s} className={`fchip ${sevFilter === s ? "on" : ""}`} onClick={() => setSevFilter(s)}>{s}</button>)}</span></div>
             {shownFindings.length === 0 && <p className="finding-detail">No {sevFilter} findings for this package.</p>}
             {shownFindings.map((f, i) => <FindingRow f={f} key={i} />)}
-            <button className="explain-toggle" onClick={() => setShowExplain((v) => !v)}>{showExplain ? "Hide" : "Explain in plain English"} · AI-generated</button>
-            {showExplain && <div className="explain-box"><span className="explain-label">AI-generated explanation — scoring itself is deterministic (rules.yaml)</span>{explainText}</div>}
+            <button className="explain-toggle" onClick={() => setShowExplain((v) => !v)}>{showExplain ? "Hide" : "Explain"} AI Context</button>
+            {showExplain && <div className="explain-box"><span className="explain-label">Engine notes</span>{explainText}</div>}
             <div className="section-label">Project-wide · L3 repo hygiene</div>
             {dataset.projectFindings.map((f, i) => <FindingRow f={f} key={i} />)}
           </div>
         </div>
         <Graph dataset={dataset} selectedId={selectedId} onSelect={(id) => { setSelectedId(id); setShowExplain(false); }} />
       </div>
-      <div className="scs-foot">Defensive demo only — all malicious indicators are simulated patterns (benign payloads, localhost targets). · Scores are deterministic; every deduction has an explanation record. · AI used for text explanations only (disclosed).</div>
+      <div className="scs-foot">Live analysis from Python Backend. Scores are mathematically deterministic based on engine weights.</div>
     </div>
   );
 }
@@ -293,21 +348,51 @@ function Dashboard({ target, dataset, onRescan }) {
 export default function App() {
   const [screen, setScreen] = useState("landing"); 
   const [target, setTarget] = useState("");
-  const [dataset, setDataset] = useState(DEMO_DATA);
+  const [dataset, setDataset] = useState(null);
+  
+  // This correctly initializes the states required by the updated Scanning component
+  const [apiError, setApiError] = useState(""); 
+  const [scanPromise, setScanPromise] = useState(null);
 
-  const startScan = async (t, ds) => { 
+  const startScan = (t) => { 
     setTarget(t); 
+    setApiError("");
+    
+    const fetchPromise = fetch(`http://127.0.0.1:8000/api/scan?target_dir=${encodeURIComponent(t)}`, { method: 'POST' })
+      .then(async res => {
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Backend Error: ${res.status}. ${errText || 'Make sure FastAPI is running.'}`);
+        }
+        return res.json();
+      });
+
+    setScanPromise(fetchPromise);
     setScreen("scanning"); 
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/api/scan?target_dir=${encodeURIComponent(t)}`, { method: 'POST' });
-      if (!response.ok) throw new Error("Backend returned an error");
-      const liveData = await response.json();
-      setDataset(liveData);
-    } catch (err) {
-      console.warn("Backend offline or error occurred. Falling back to demo data.", err);
-      setDataset(ds);
-    }
   };
 
-  return <div className="scs-root">{screen === "landing" && <Landing onScan={startScan} />}{screen === "scanning" && <Scanning target={target} dataset={dataset} onDone={() => setScreen("dashboard")} onCancel={() => setScreen("landing")} />}{screen === "dashboard" && <Dashboard target={target} dataset={dataset} onRescan={() => setScreen("landing")} />}</div>;
+  const handleScanCancel = useCallback((errorMessage) => {
+    setApiError(errorMessage || "Scan aborted.");
+    setScreen("landing");
+  }, []);
+
+  const handleScanComplete = useCallback((liveData) => {
+    setDataset(liveData);
+    setScreen("dashboard");
+  }, []);
+
+  return (
+    <div className="scs-root">
+      {screen === "landing" && <Landing onScan={startScan} apiError={apiError} />}
+      {screen === "scanning" && (
+        <Scanning 
+          target={target} 
+          scanPromise={scanPromise} 
+          onScanComplete={handleScanComplete} 
+          onCancel={handleScanCancel} 
+        />
+      )}
+      {screen === "dashboard" && <Dashboard target={target} dataset={dataset} onRescan={() => setScreen("landing")} />}
+    </div>
+  );
 }
