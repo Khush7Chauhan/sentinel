@@ -5,7 +5,6 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
-
 from src.models import PackageRecord, Severity
 from src.intel.osv import check_osv_vulnerabilities
 from src.intel.typosquat import check_typosquat
@@ -22,12 +21,10 @@ console = Console()
 
 @app.callback()
 def main():
-    """Sentinel Supply Chain Security Scanner."""
     pass
 
 @app.command()
 def serve():
-    """Launches the local FastAPI dashboard (Phase 6)."""
     console.print("[bold cyan]Starting Sentinel Dashboard on http://localhost:8000...[/]")
 
 @app.command()
@@ -39,32 +36,25 @@ def scan(target_dir: str, json_out: bool = typer.Option(False, "--json", help="E
 
     repo_findings = []
     verdicts = []
-    
-    # Mock parser: In a full run, this is populated by src/parsers/pypi.py[cite: 2]
     packages = [
         PackageRecord(name="reqeusts", version="2.31.0", ecosystem="pypi", direct=True, source_file="requirements.txt")
     ]
 
     with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console) as progress:
-        # L3 Repo Hygiene[cite: 2]
         task_hygiene = progress.add_task("Scanning repo hygiene...", total=1)
         repo_findings.extend(scan_repo_secrets(target_path))
         repo_findings.extend(audit_github_workflows(target_path))
         progress.update(task_hygiene, completed=1)
-
-        # L1 & L2 Package Analysis[cite: 2]
         task_pkgs = progress.add_task("Analyzing dependencies...", total=len(packages))
         for pkg in packages:
             findings = []
             
-            # L1
             if tf := check_typosquat(pkg):
                 findings.append(tf)
             findings.extend(check_osv_vulnerabilities(pkg))
             findings.extend(check_registry_anomalies(pkg))
             findings.extend(check_dependency_confusion(pkg, is_internal_candidate=True))
             
-            # L2
             extract_dir = fetch_and_extract(pkg)
             if extract_dir:
                 findings.extend(scan_extracted_tarball(pkg, extract_dir))
@@ -79,8 +69,6 @@ def scan(target_dir: str, json_out: bool = typer.Option(False, "--json", help="E
             f.write(report.model_dump_json(indent=2))
         console.print("[bold green]✅ Report exported to sentinel_report.json[/]")
         return
-
-    # Print Dashboard[cite: 2]
     color = "green" if report.project_score >= 80 else "yellow" if report.project_score >= 50 else "red"
     console.print(Panel(f"Project Health Score: [bold {color}]{report.project_score}/100[/]", title="SENTINEL AUDIT REPORT"))
 
@@ -95,7 +83,6 @@ def scan(target_dir: str, json_out: bool = typer.Option(False, "--json", help="E
         table.add_column("Score", style="magenta")
         table.add_column("Critical Flags", style="red")
 
-        # Sort by lowest score first
         verdicts.sort(key=lambda v: v.score)
         for v in verdicts[:10]:
             criticals = sum(1 for f in v.findings if f.severity == Severity.CRITICAL)
