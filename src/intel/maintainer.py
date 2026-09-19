@@ -3,7 +3,6 @@ from datetime import datetime
 from src.models import PackageRecord, Finding, Severity
 
 def check_registry_anomalies(package: PackageRecord) -> list[Finding]:
-    """Analyzes registry metadata for sleeper releases and maintainer trust scores[cite: 2]."""
     if package.ecosystem != "pypi":
         return []
         
@@ -17,8 +16,6 @@ def check_registry_anomalies(package: PackageRecord) -> list[Finding]:
             
         data = response.json()
         releases = data.get("releases", {})
-        
-        # Extract and sort valid release dates
         release_dates = []
         for ver, files in releases.items():
             if files:
@@ -31,8 +28,6 @@ def check_registry_anomalies(package: PackageRecord) -> list[Finding]:
                         continue
                     
         release_dates.sort(key=lambda x: x[0])
-        
-        # Version Anomaly: Sleeper Package (Gap > 365 days)[cite: 2]
         if len(release_dates) >= 2:
             latest_dt, latest_ver = release_dates[-1]
             prev_dt, prev_ver = release_dates[-2]
@@ -52,7 +47,6 @@ def check_registry_anomalies(package: PackageRecord) -> list[Finding]:
                     points=15.0
                 ))
                 
-        # Maintainer Trust Approximation[cite: 2]
         info = data.get("info", {})
         author_email = info.get("author_email", "")
         
@@ -70,8 +64,7 @@ def check_registry_anomalies(package: PackageRecord) -> list[Finding]:
                     human_explanation="Maintainer uses a free email provider and has very few historical releases, resulting in a low trust score[cite: 2].",
                     mitigation="Verify package provenance and author identity.",
                     points=8.0
-                ))
-                
+                ))                
     except Exception:
         pass
 

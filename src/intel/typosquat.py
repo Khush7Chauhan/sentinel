@@ -2,7 +2,6 @@ import unicodedata
 from typing import Optional
 from src.models import PackageRecord, Finding, Severity
 
-# Top PyPI targets frequently spoofed by attackers
 TOP_PACKAGES = [
     "requests", "urllib3", "setuptools", "boto3", "botocore", "certifi",
     "idna", "charset-normalizer", "pip", "typing-extensions", "wheel",
@@ -27,7 +26,6 @@ HOMOGLYPH_MAP = {
 }
 
 def normalize_homoglyphs(text: str) -> tuple[str, bool]:
-    """Replaces confusable homoglyphs with standard ASCII chars."""
     normalized_chars = []
     changed = False
 
@@ -44,7 +42,6 @@ def normalize_homoglyphs(text: str) -> tuple[str, bool]:
     return "".join(normalized_chars), changed
 
 def levenshtein_distance(s1: str, s2: str) -> int:
-    """Computes Damerau-Levenshtein distance, supporting insertions, deletions, substitutions, and transpositions."""
     d = {}
     len1, len2 = len(s1), len(s2)
     for i in range(-1, len1 + 1):
@@ -56,22 +53,19 @@ def levenshtein_distance(s1: str, s2: str) -> int:
         for j in range(len2):
             cost = 0 if s1[i] == s2[j] else 1
             d[(i, j)] = min(
-                d[(i - 1, j)] + 1,       # deletion
-                d[(i, j - 1)] + 1,       # insertion
-                d[(i - 1, j - 1)] + cost # substitution
+                d[(i - 1, j)] + 1,
+                d[(i, j - 1)] + 1,      
+                d[(i - 1, j - 1)] + cost 
             )
-            # Transposition check
+            
             if i > 0 and j > 0 and s1[i] == s2[j - 1] and s1[i - 1] == s2[j]:
                 d[(i, j)] = min(d[(i, j)], d[(i - 2, j - 2)] + 1)
 
     return d[(len1 - 1, len2 - 1)]
 
 def check_typosquat(package: PackageRecord) -> Optional[Finding]:
-    """Inspects package name for homoglyph attacks and typosquat distance."""
     raw_name = package.name.lower().strip()
     norm_name, homoglyph_detected = normalize_homoglyphs(raw_name)
-
-    # 1. Homoglyph Substitution Detection
     if homoglyph_detected and norm_name in TOP_PACKAGES:
         return Finding(
             id="TYPO-HOMOGLYPH",
@@ -89,15 +83,11 @@ def check_typosquat(package: PackageRecord) -> Optional[Finding]:
             mitigation=f"Remove '{package.name}' immediately and replace with '{norm_name}'.",
             points=25.0
         )
-
-    # 2. Levenshtein Distance Matching (Typosquatting)
     for target in TOP_PACKAGES:
         if raw_name == target:
             continue
 
         distance = levenshtein_distance(raw_name, target)
-        
-        # Distance 1: High probability typosquat (e.g., reqeusts vs requests)
         if distance == 1:
             return Finding(
                 id="TYPO-DISTANCE-1",
@@ -111,7 +101,6 @@ def check_typosquat(package: PackageRecord) -> Optional[Finding]:
                 mitigation=f"Verify if you intended to install '{target}' instead of '{package.name}'.",
                 points=18.0
             )
-        # Distance 2: Suspicious similarity on longer names (len >= 7)
         elif distance == 2 and len(target) >= 7:
             return Finding(
                 id="TYPO-DISTANCE-2",

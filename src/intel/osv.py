@@ -2,12 +2,10 @@ import httpx
 from src.models import PackageRecord, Finding, Severity
 
 def check_osv_vulnerabilities(package: PackageRecord) -> list[Finding]:
-    """Queries the OSV.dev API for known CVEs affecting this package version."""
     if not package.version:
         return []
 
     url = "https://api.osv.dev/v1/query"
-    # OSV expects ecosystem names like "PyPI" or "npm"
     ecosystem_format = "PyPI" if package.ecosystem == "pypi" else package.ecosystem.capitalize()
     
     payload = {
@@ -43,7 +41,6 @@ def check_osv_vulnerabilities(package: PackageRecord) -> list[Finding]:
                 points=25.0
             ))
     except Exception:
-        # Fails silently to prevent crash during offline demo execution
         pass 
 
     return findings

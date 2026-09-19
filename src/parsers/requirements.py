@@ -3,7 +3,6 @@ from pathlib import Path
 from src.models import PackageRecord
 
 def parse_requirements(file_path: Path) -> list[PackageRecord]:
-    """Parses a requirements.txt file into PackageRecord instances."""
     if not file_path.exists():
         return []
 
