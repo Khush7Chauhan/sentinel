@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import './index.css';
-import { DEMO_DATA, CLEAN_DATA, TIMELINE } from './data';
+import { TIMELINE } from './data';
 import { 
   SEVERITY_COLOR, SEVERITY_LABEL, FINDING_DEDUCTION, GH_URL_RE,
   severityFromRisk, packageRisk, packageSeverity, projectRisk, download, buildReport, buildSarif 
@@ -41,7 +41,6 @@ function Graph({ dataset, selectedId, onSelect }) {
   };
   const nodeSev = (n) => severityFromRisk(n.kind === "root" ? projectRisk(dataset.packages, dataset.projectFindings) : riskOf(n.id));
 
-  // DYNAMIC RADIAL LAYOUT ENGINE
   const { nodes, edges } = useMemo(() => {
     if (!dataset || !dataset.graph) return { nodes: [], edges: [] };
     
@@ -51,7 +50,6 @@ function Graph({ dataset, selectedId, onSelect }) {
     const cx = 300, cy = 160, radius = 115;
     const positionedNodes = [ { ...rootNode, x: cx, y: cy } ];
     
-    // Auto-distribute package nodes in a perfect circle
     pkgNodes.forEach((node, i) => {
       const angle = (i / pkgNodes.length) * 2 * Math.PI - (Math.PI / 2);
       positionedNodes.push({
@@ -305,9 +303,46 @@ function Dashboard({ target, dataset, onRescan }) {
 
   return (
     <div className="scs">
-      <div className="scs-header">
-        <div className="scs-title"><h1>Supply Chain Sentinel</h1><span className="sub">{target} · scanned live via FastAPI</span></div>
-        <div className="header-right"><span className="sub" style={{ color: "var(--muted)", fontSize: 12.5 }}>{dataset.packages.length} packages · {critCount} critical · {highCount} high</span><div className="overall-badge" title="Weighted package rollup + repo findings"><span className="n" style={{ color: SEVERITY_COLOR[riskSev] }}>{risk}</span><span className="l">/100 risk</span></div><button className="rescan" onClick={() => download("scan-report.json", JSON.stringify(buildReport(target, dataset), null, 2))}>Export</button><button className="rescan" onClick={() => setView("remediation")}>Remediation →</button><button className="rescan btn-primary" onClick={onRescan}>New scan</button></div>
+      <div style={{ backgroundColor: "#111318", borderBottom: "1px solid #1f2937", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", fontFamily: "system-ui, -apple-system, sans-serif", flexWrap: "nowrap", gap: "16px" }}>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: "1 1 auto", minWidth: 0, overflow: "hidden" }}>
+          <h1 style={{ fontSize: "1.125rem", fontWeight: "700", fontFamily: "'IBM Plex Mono', monospace, Consolas", color: "#ffffff", margin: 0, letterSpacing: "-0.025em", whiteSpace: "nowrap", flexShrink: 0 }}>
+            Supply Chain Sentinel
+          </h1>
+          <div style={{ fontSize: "0.875rem", color: "#9ca3af", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
+            <span>{target} · scanned live via FastAPI · </span>
+            <span style={{ color: "#eab308" }}>live data</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
+          <div style={{ fontSize: "0.875rem", color: "#9ca3af", whiteSpace: "nowrap" }}>
+            {dataset.packages.length} packages · {critCount} critical · {highCount} high
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "6px", backgroundColor: "#1E2128", border: "1px solid #374151", padding: "6px 12px", borderRadius: "8px", flexShrink: 0 }}>
+            <span style={{ color: SEVERITY_COLOR[riskSev] || "#ef4444", fontWeight: "700", fontSize: "1.25rem", lineHeight: 1 }}>{risk}</span>
+            <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>/100 risk</span>
+          </div>
+          <div style={{ display: "flex", gap: "12px", flexShrink: 0 }}>
+            <button 
+              onClick={() => download("scan-report.json", JSON.stringify(buildReport(target, dataset), null, 2))}
+              style={{ backgroundColor: "#1E2128", border: "1px solid #374151", color: "#ffffff", padding: "8px 16px", borderRadius: "8px", fontSize: "0.875rem", fontWeight: "500", cursor: "pointer" }}>
+              Export
+            </button>
+            
+            <button 
+              onClick={() => setView("remediation")}
+              style={{ backgroundColor: "#1E2128", border: "1px solid #374151", color: "#ffffff", padding: "8px 16px", borderRadius: "8px", fontSize: "0.875rem", fontWeight: "500", cursor: "pointer" }}>
+              Remediation →
+            </button>
+            
+            <button 
+              onClick={onRescan}
+              style={{ backgroundColor: "#2563eb", border: "none", color: "#ffffff", padding: "8px 16px", borderRadius: "8px", fontSize: "0.875rem", fontWeight: "500", cursor: "pointer", boxShadow: "0 0 15px rgba(37,99,235,0.4)" }}>
+              New scan
+            </button>
+          </div>
+
+        </div>
       </div>
       <div className="pipeline">{SCAN_STEPS.map((step, i) => <React.Fragment key={step}><span className="pipe-step done">✓ {step}</span>{i < SCAN_STEPS.length - 1 && <span className="pipe-arrow">→</span>}</React.Fragment>)}</div>
       <div className="scs-body">
@@ -350,7 +385,6 @@ export default function App() {
   const [target, setTarget] = useState("");
   const [dataset, setDataset] = useState(null);
   
-  // This correctly initializes the states required by the updated Scanning component
   const [apiError, setApiError] = useState(""); 
   const [scanPromise, setScanPromise] = useState(null);
 
