@@ -63,22 +63,18 @@ def main():
     findings = []
     packages = []
 
-    # 1. Inspect requirements.txt if present
     req_file = target_path / "requirements.txt"
     if req_file.exists():
         packages = parse_requirements(req_file)
     else:
         packages = [PackageRecord(name=target_path.name)]
 
-    # Layer 1: Run Typosquat & OSV checks across all parsed dependencies
     for pkg in packages:
         typo_finding = check_typosquat(pkg)
         if typo_finding:
             findings.append(typo_finding)
         if pkg.version:
             findings.extend(check_osv_vulnerabilities(pkg))
-
-    # Layers 2 & 3: AST, Secrets, and Setup Hooks
     for file_path in target_path.rglob("*.py"):
         pkg_ref = packages[0] if packages else PackageRecord(name="local-code")
         findings.extend(scan_file_ast(pkg_ref, file_path))
@@ -86,13 +82,10 @@ def main():
         if file_path.name == "setup.py":
             findings.extend(inspect_setup_py(pkg_ref, file_path))
 
-    # Output results
     if args.json:
         export_json_report(str(target_path), findings)
     else:
         print_terminal_report(str(target_path), findings, len(packages))
-
-    # Pipeline Exit Code: Exit 1 if risk exceeds threshold or contains CRITICAL
     total_score = sum(f.points for f in findings)
     has_critical = any(f.severity == Severity.CRITICAL for f in findings)
 

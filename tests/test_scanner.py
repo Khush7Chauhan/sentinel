@@ -20,8 +20,6 @@ def test_l2_ast_malicious_payload():
     target_file = Path("demo-app/malicious_auth.py")
     
     findings = scan_file_ast(pkg, target_file)
-    
-    # We expect multiple findings: dangerous imports and eval/system calls
     finding_types = [f.type for f in findings]
     
     assert len(findings) >= 3
