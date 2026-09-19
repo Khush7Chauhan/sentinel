@@ -24,7 +24,6 @@ app.add_middleware(
 )
 
 def run_scan_on_directory(scan_path: Path, display_label: str) -> dict:
-    """Executes deterministic L1/L2/L3 security audits on the target folder."""
     parsed_packages = parse_target_directory(scan_path)
     repo_findings = scan_repo_secrets(scan_path)
     

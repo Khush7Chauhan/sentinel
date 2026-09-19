@@ -32,7 +32,6 @@ def calculate_package_score(record: PackageRecord, findings: list[Finding]) -> P
     return PackageVerdict(record=record, score=round(score, 2), findings=findings)
 
 def generate_report(target: str, verdicts: list[PackageVerdict], repo_findings: list[Finding]) -> ScanReport:
-    """Aggregates package scores and repo findings into a final project report[cite: 2]."""
     total_deduction = 0.0
     for v in verdicts:
         depth_weight = 1.0 if v.record.direct else (1.0 / max(1, v.record.depth))
