@@ -2,7 +2,6 @@ import httpx
 from src.models import PackageRecord, Finding, Severity
 
 def check_dependency_confusion(package: PackageRecord, is_internal_candidate: bool = False) -> list[Finding]:
-    """Checks if a dependency is vulnerable to public namespace confusion (SPEC §6.4)."""
     if not is_internal_candidate:
         return []
 

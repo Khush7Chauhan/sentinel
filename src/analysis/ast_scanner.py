@@ -78,7 +78,6 @@ class SentinelASTVisitor(ast.NodeVisitor):
         ))
 
 def scan_file_ast(package: PackageRecord, file_path: Path) -> list[Finding]:
-    """Parses a Python file into an AST and scans it for malicious patterns."""
     if not file_path.exists():
         return []
         

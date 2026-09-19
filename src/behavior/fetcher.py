@@ -10,7 +10,6 @@ CACHE_DIR = Path.home() / ".sentinel" / "cache"
 MAX_SIZE_BYTES = RULES["behavior_limits"]["max_tarball_mb"] * 1024 * 1024
 
 def fetch_and_extract(package: PackageRecord) -> Path | None:
-    """Downloads and extracts package tarballs with aggressive offline caching."""
     if package.ecosystem != "pypi":
         return None  
 
