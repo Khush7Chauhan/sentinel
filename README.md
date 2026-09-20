@@ -1,7 +1,5 @@
 # 🛡️ Supply Chain Sentinel
 
-**[🎥 Watch the 3-Minute Demo Video on YouTube](YOUR_YOUTUBE_UNLISTED_LINK_HERE)**
-
 ## The Problem
 Modern software development is built on blind trust. Every time a developer types `npm install` or `pip install`, they unknowingly pull in thousands of lines of code written by strangers. Attackers are poisoning the open-source well with typosquats, malicious install hooks, and hijacked maintainer accounts. 
 
