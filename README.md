@@ -41,7 +41,7 @@ npm install
 # 2. Start the Vite development server (Runs on port 5173)
 npm run dev
 ```
-#Features & Usage
+###Features & Usage
 Live Scanning: Enter a GitHub repository URL or local directory path into the landing page search bar.
 
 Interactive Topology: Explore the threat landscape using the dynamic dependency graph. Clicking on any critical (red) node will reveal engine notes and AI context.
