@@ -31,7 +31,6 @@ pip install -r requirements.txt
 # 2. Start the FastAPI server (Runs on port 8000)
 python -m uvicorn src.report.server:app --reload --port 8000
 ```
-
 ###Terminal 2: Start the Frontend (React + Vite)
 The frontend calculates the dynamic radial graph UI using our custom trigonometric layout engine.
 ```Bash
@@ -41,7 +40,7 @@ npm install
 # 2. Start the Vite development server (Runs on port 5173)
 npm run dev
 ```
-###Features & Usage
+#Features & Usage
 Live Scanning: Enter a GitHub repository URL or local directory path into the landing page search bar.
 
 Interactive Topology: Explore the threat landscape using the dynamic dependency graph. Clicking on any critical (red) node will reveal engine notes and AI context.
